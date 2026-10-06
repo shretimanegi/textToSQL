@@ -1,0 +1,28 @@
+[project]
+name = "texttosql-backend"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "psycopg[binary,pool]>=3.2",
+    "sqlglot",
+    "pydantic-settings",
+    "anthropic",
+    "openai",
+    "httpx",
+    "fastembed>=0.8.1",
+]
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "httpx"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.setuptools]
+packages = ["app"]

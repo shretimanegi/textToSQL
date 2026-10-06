@@ -1,0 +1,26 @@
+# Render blueprint for the API. The frontend goes on Vercel (see DEPLOY.md).
+services:
+  - type: web
+    name: texttosql-api
+    runtime: docker
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /health
+    plan: free
+    envVars:
+      - key: ADMIN_DATABASE_URL        # Neon/Supabase owner connection string
+        sync: false
+      - key: READONLY_DATABASE_URL     # readonly_user connection string
+        sync: false
+      - key: LLM_PROVIDER
+        value: gemini
+      - key: LLM_MODEL
+        value: gemini-3.1-flash-lite
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: CORS_ORIGINS              # your Vercel URL, e.g. https://texttosql.vercel.app
+        sync: false
+      - key: TRUSTED_PROXY_HOPS        # Render adds one proxy hop; needed for per-IP rate limiting
+        value: "1"
+      - key: RATE_LIMIT_PER_HOUR
+        value: "20"
