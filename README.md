@@ -52,7 +52,7 @@ Generated SQL is untrusted. Every query passes four independent layers, so no si
 3. **Limits:** a 5 s statement timeout, and `LIMIT 500` injected or capped.
 4. **Transaction wrapper:** every query runs inside `BEGIN READ ONLY ... ROLLBACK`.
 
-The test suite includes 52 malicious SQL cases that must be blocked, 5 end-to-end attacks where a mocked LLM "obeys" the attacker, and DB-level tests that bypass the parser to show the layers work independently.
+The test suite includes 54 malicious SQL cases that must be blocked, 5 end-to-end attacks where a mocked LLM "obeys" the attacker, and DB-level tests that bypass the parser to show the layers work independently.
 
 ## Results
 

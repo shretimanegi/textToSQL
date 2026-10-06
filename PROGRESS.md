@@ -11,7 +11,7 @@
   4. `app/executor.py`: `BEGIN READ ONLY ... ROLLBACK`.
 - F1 baseline (`app/baseline.py`): full introspected schema (cols, PKs, FKs) in prompt, Gemini via `app/llm.py` (provider switch: gemini/anthropic/openai). Logs every ask to `app.query_log`.
 - API: `POST /ask`, `POST /run-sql`, `GET /schema` (others come in later phases).
-- Tests: 158 pass (`cd backend && uv run pytest`), including 3 live-LLM Chinook questions against Gemini (skipped automatically if no key is set). Red-team: 52 malicious SQL cases blocked at the parser and the executor, 5 "obedient LLM" questions blocked end to end, plus DB-level tests that bypass the parser (role cannot write or read `app`, 5s timeout, read-only txn).
+- Tests: 158 pass (`cd backend && uv run pytest`), including 3 live-LLM Chinook questions against Gemini (skipped automatically if no key is set). Red-team: 54 malicious SQL cases blocked at the parser and the executor, 5 "obedient LLM" questions blocked end to end, plus DB-level tests that bypass the parser (role cannot write or read `app`, 5s timeout, read-only txn).
 
 ### Run it
 ```
