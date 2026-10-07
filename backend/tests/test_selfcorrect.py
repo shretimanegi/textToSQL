@@ -101,3 +101,16 @@ async def test_normalizer_is_applied_before_running():
 
     r = await pipeline.correct_loop("s", "u", scripted("select  x"), run_sql, normalize=lambda s: "NORMALIZED")
     assert seen == ["NORMALIZED"] and r.ok
+
+
+def test_thinking_config_per_model_family(monkeypatch):
+    from app import llm
+    from app.config import settings
+    monkeypatch.setattr(settings, "llm_thinking_level", "")
+    monkeypatch.setattr(settings, "llm_thinking_budget", 0)
+    assert llm.thinking_config() == {"thinkingBudget": 0}  # Gemini 2.5 / 3.1 flash-lite
+    monkeypatch.setattr(settings, "llm_thinking_level", "minimal")
+    assert llm.thinking_config() == {"thinkingLevel": "minimal"}  # Gemini 3.5: budget is rejected
+    monkeypatch.setattr(settings, "llm_thinking_level", "")
+    monkeypatch.setattr(settings, "llm_thinking_budget", -1)
+    assert llm.thinking_config() is None

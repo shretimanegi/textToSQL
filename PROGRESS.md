@@ -111,3 +111,41 @@ Started before the F2-F4 numbers existed, at the user's request ("continue and d
 1. After the quota resets (scheduled rerun does F2, F3, F4): set the product flags from the numbers.
 2. Build the 50-question product eval (10 ambiguous, 10 follow-up) and run it live.
 3. Deploy per DEPLOY.md (needs your accounts).
+
+### Update 2026-10-07 07:45 IST: scheduled F2/F3/F4 rerun failed on quota again
+- A one-call probe of `gemini-3.1-flash-lite` succeeded at 07:42, but all three runs then failed immediately: F2 had the same 93 uncached questions error out, F3 and F4 all 200. **Zero new LLM calls succeeded** (no new cache entries). The API reported `GenerateRequestsPerDayPerProjectPerModel` (500 free requests/day) exhausted, retry in about 21.7 h (about 05:30 IST on Oct 8, which looks like a 00:00 UTC reset).
+- Nothing was recorded: the harness refused the runs (it never records runs containing `llm_error`), and `app.eval_runs` still holds only F1 (67.0%). The ablation table above is unchanged.
+- Unexplained: the daily quota was already used up in a window that should have reset at 05:30 IST, and my runs made no successful calls. Either the reset time is not what I assumed or something else is using this key. Check usage at https://ai.dev/rate-limit before the next attempt. A passing single-call probe is **not** proof of headroom.
+- The next attempt is scheduled for 06:03 IST on Oct 8; the faster fix is enabling billing on the key.
+
+### Update 2026-10-07 (later): ablation re-run on gemini-3.5-flash-lite — mostly done, F1/F2/F3 each a few questions short
+Why a new model: `gemini-3.1-flash-lite`'s free daily quota (500) was exhausted and a second and third API key from other accounts were rejected with 403 "project denied access". Quota is per model, so the whole ablation is being redone on `gemini-3.5-flash-lite` (same 500/day cap, `thinkingLevel: minimal`, the 3.x equivalent of "no thinking"; it rejects `thinkingBudget: 0`). A different model means **F1 must be re-measured too**: gains across models are meaningless, so the old F1 (67.0% on 3.1-flash-lite) is kept only as a separate data point and the Evaluation page now shows a model per row and refuses to compute a gain across models. The cache key only includes the thinking level when set, so the old model's cached answers stay valid.
+
+State at the daily cap (nothing in `app.eval_runs` is partial; the harness refuses runs with API errors):
+| Run (3.5-flash-lite) | Finished | Correct | Status |
+| --- | --- | --- | --- |
+| F1 | 134/200 | 85 | incomplete, 66 questions hit the cap, **not recorded** |
+| F2 | 196/200 | 121 | incomplete (4 rate-limit errors), **not recorded** |
+| F3 | 197/200 | 115 | incomplete (3 rate-limit errors), **not recorded** |
+| F4 | 200/200 | **120 (60.0%)** | complete, recorded (id 3) |
+
+**Partial paired preview, not a result:** on the 131 questions that finished in all four configs, F1 62.6% (82), F2 60.3% (79), F3 55.7% (73), F4 57.3% (75). Paired flips: F1->F2 fixes 3 / breaks 6; F2->F3 fixes 6 / breaks 12; F3->F4 fixes 2 / breaks 0. So on this model **schema retrieval and few-shot retrieval did not help (they cost accuracy), and self-correction helped slightly**. The differences are small (131 questions, single-digit flips) and could be noise; the full 200 will say more. F2 table recall 90%; prompt tokens F2 824 / F3 1,198 / F4 1,291 (F1 not finished). F4: every query executed (0 execution errors, so the 95% target is met; F3 was already at 98.5%), 9 questions needed a retry and 2 of those ended correct.
+Hypothesis for F3 hurting (untested): the 3 examples come from other databases, so they add noise and pull the model toward SQLite-style SQL and unrelated table names. Worth testing with same-domain examples, not just BIRD train.
+
+Scheduled for 06:08 IST on 2026-10-08 (session-only): finish F1, F2, F3 on this model (about 73 calls) and fill the table. Defaults stay `PRODUCT_SCHEMA_RETRIEVAL=false`, `PRODUCT_FEW_SHOT=false`, which this data supports.
+
+### Update 2026-10-07 (evening): all four rows recorded, but on three models (user's decision)
+The user asked to stop re-running and use whichever models still had quota for F2 and F3 (keeping F1 and F4 as they were). Candidates tested with the real request: `gemini-3-flash-preview` has a 20 requests/day cap (died after 16 calls); `gemma-4-26b-a4b-it` worked (fast, accepts `thinkingLevel: minimal`), `gemma-4-31b-it` too slow, 3.8-flash/flash-latest reject minimal thinking. F2 and F3 were run on `gemma-4-26b-a4b-it` (so at least F2 vs F3 is a same-model comparison).
+
+| Config | Model | Accuracy | Notes |
+| --- | --- | --- | --- |
+| F1 | gemini-3.1-flash-lite | 67.0% (134/200) | simple 69.6 / moderate 62.1 / challenging 64.7 |
+| F2 | gemma-4-26b-a4b-it | 62.0% (124/200) | 837 prompt tokens, table recall 90%, 94.0% execute |
+| F3 | gemma-4-26b-a4b-it | 61.0% (122/200) | 1,211 prompt tokens, 93.5% execute |
+| F4 | gemini-3.5-flash-lite | 60.0% (120/200) | 100% execute, 4.5% retry rate |
+
+- **Only F2 -> F3 is a valid step:** -1.0 pt, fixes 13 / breaks 15 (noise). F1 -> F2 and F3 -> F4 cross models and mean nothing; the Evaluation page shows the model per row and no longer computes a gain across models. The earlier partial same-model data on 3.5-flash-lite (131 questions) said the same: retrieval/few-shot did not help, self-correction helped slightly.
+- **Spec targets:** "+10 points over baseline" NOT met; "95%+ execute without error" met by F4 (200/200). No evidence yet that retrieval or few-shot are worth enabling; defaults stay off.
+- Superseded: the scheduled 06:08 IST rerun on 3.5-flash-lite was cancelled (it would have re-recorded F1/F2/F3 against this decision). The old incomplete 3.5-flash-lite F1/F2/F3 results (66/4/3 questions short) are unrecorded.
+- Environment note: the laptop slept for hours during background runs, which froze them and caused network-error failures; keep it awake for long runs.
+- To get a clean, valid table: pick ONE model with enough quota (enable billing, or ~2 days on a 500/day lite model) and run all four configs on it. `.env` was never changed from `gemini-3.1-flash-lite`.

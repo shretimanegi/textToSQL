@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     llm_provider: str = "gemini"  # gemini | anthropic | openai
     llm_model: str = "gemini-2.5-flash"
     gemini_api_key: str = ""
-    llm_thinking_budget: int = 0  # Gemini 2.5: 0 = no thinking (plain prompt-to-SQL baseline)
+    llm_thinking_budget: int = 0  # Gemini 2.5: 0 = no thinking (plain prompt-to-SQL baseline); -1 = omit
+    llm_thinking_level: str = ""  # Gemini 3.x: e.g. "minimal" (these models reject thinkingBudget); overrides the budget
     anthropic_api_key: str = ""
     openai_api_key: str = ""
 

@@ -29,8 +29,11 @@ export default function EvalPage() {
   const rows = CONFIGS.map((c, i) => {
     const run = latest.get(c.key) ?? null;
     const prev = i > 0 ? latest.get(CONFIGS[i - 1].key) : null;
-    const delta = run?.accuracy != null && prev?.accuracy != null ? (run.accuracy - prev.accuracy) * 100 : null;
-    return { ...c, run, delta };
+    // A gain is only meaningful when both rows came from the same model.
+    const sameModel = run != null && prev != null && run.model === prev.model;
+    const delta = sameModel && run.accuracy != null && prev.accuracy != null ? (run.accuracy - prev.accuracy) * 100 : null;
+    const crossModel = run != null && prev != null && !sameModel;
+    return { ...c, run, delta, crossModel };
   });
   const measured = rows.filter((r) => r.run?.accuracy != null);
   const first = measured[0]?.run;
@@ -55,6 +58,7 @@ export default function EvalPage() {
               <thead className="bg-surface2 text-xs text-ink2">
                 <tr>
                   <th scope="col" className="px-4 py-2.5 font-medium">Configuration</th>
+                  <th scope="col" className="px-4 py-2.5 font-medium">Model</th>
                   <th scope="col" className="px-4 py-2.5 text-right font-medium">Accuracy</th>
                   <th scope="col" className="px-4 py-2.5 text-right font-medium">vs previous</th>
                   <th scope="col" className="px-4 py-2.5 text-right font-medium">Avg latency</th>
@@ -67,17 +71,18 @@ export default function EvalPage() {
                     <th scope="row" className="px-4 py-3 font-medium">{r.name}</th>
                     {r.run ? (
                       <>
+                        <td className="px-4 py-3 text-xs text-ink2">{r.run.model ?? "unknown"}</td>
                         <td className="px-4 py-3 text-right tabular-nums">
                           {pct(r.run.accuracy)} <span className="text-ink3">({Math.round((r.run.accuracy ?? 0) * (r.run.n_questions ?? 0))}/{r.run.n_questions})</span>
                         </td>
                         <td className={`px-4 py-3 text-right tabular-nums ${r.delta == null ? "text-ink3" : r.delta < 0 ? "text-danger" : "text-good"}`}>
-                          {r.delta == null ? "—" : `${r.delta > 0 ? "+" : ""}${r.delta.toFixed(1)} pts`}
+                          {r.crossModel ? "different model" : r.delta == null ? "—" : `${r.delta > 0 ? "+" : ""}${r.delta.toFixed(1)} pts`}
                         </td>
                         <td className="px-4 py-3 text-right tabular-nums">{r.run.avg_latency_ms != null ? `${(r.run.avg_latency_ms / 1000).toFixed(1)} s` : "—"}</td>
                         <td className="px-4 py-3 text-right tabular-nums">{r.run.avg_input_tokens != null ? Math.round(r.run.avg_input_tokens).toLocaleString() : "—"}</td>
                       </>
                     ) : (
-                      <td colSpan={4} className="px-4 py-3 text-ink3">Not run yet</td>
+                      <td colSpan={5} className="px-4 py-3 text-ink3">Not run yet</td>
                     )}
                   </tr>
                 ))}
@@ -98,7 +103,7 @@ export default function EvalPage() {
 
           {first && (
             <p className="mt-6 text-xs text-ink3">
-              Model: {first.model ?? "unknown"} · dataset: {first.dataset} · the BIRD hint is included in the prompt. Questions whose reference SQL cannot run on PostgreSQL
+              Dataset: {first.dataset} · the BIRD hint is included in the prompt. Rows are only compared when they used the same model. Questions whose reference SQL cannot run on PostgreSQL
               (8% of the benchmark) are excluded, so compare rows to each other rather than to the public leaderboard.
               Latency here includes free-tier rate limiting.
             </p>

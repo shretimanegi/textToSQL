@@ -4,7 +4,7 @@ Ask questions about a PostgreSQL database in plain English and get back the SQL,
 
 It is a portfolio project covering retrieval, prompting, tool execution, self-correction, safety and measured evaluation in one system. The full requirements are in [SPEC.md](SPEC.md); current status and decisions are in [PROGRESS.md](PROGRESS.md).
 
-> **Status:** the whole system is built and runs locally, but it is **not deployed**, and only the **F1 baseline accuracy is measured** (67.0%). F2 to F4 are implemented and tested, but their accuracy has not been measured yet because of a free-tier LLM quota. See [Results](#results).
+> **Status:** the whole system is built and runs locally, but it is **not deployed**. All four ablation rows are measured, but on **three different models** (free-tier quotas forced the switches), so only one step-to-step comparison is valid. See [Results](#results).
 
 ## What it does
 
@@ -56,23 +56,29 @@ The test suite includes 54 malicious SQL cases that must be blocked, 5 end-to-en
 
 ## Results
 
-Execution accuracy on a fixed 200-question subset of the BIRD dev benchmark (seed 42, stratified by difficulty, evidence hint in the prompt, `gemini-3.1-flash-lite`, no thinking):
+Execution accuracy on a fixed 200-question subset of the BIRD dev benchmark (seed 42, stratified by difficulty, evidence hint in the prompt, no or minimal model thinking):
 
-| Configuration | Execution accuracy | Status |
+| Configuration | Model | Execution accuracy |
 | --- | --- | --- |
-| F1 baseline (full schema) | **67.0%** (134/200) | measured |
-| + F2 schema retrieval | not measured | built and tested |
-| + F3 few-shot retrieval | not measured | built and tested |
-| + F4 self-correction | not measured | built and tested |
+| F1 baseline (full schema) | `gemini-3.1-flash-lite` | **67.0%** (134/200) |
+| + F2 schema retrieval | `gemma-4-26b-a4b-it` | **62.0%** (124/200) |
+| + F3 few-shot retrieval | `gemma-4-26b-a4b-it` | **61.0%** (122/200) |
+| + F4 self-correction | `gemini-3.5-flash-lite` | **60.0%** (120/200) |
 
-F1 by difficulty: simple 69.6%, moderate 62.1%, challenging 64.7% (only 17 questions). Partial, unrecorded F2 runs looked flat to slightly below F1: BIRD databases are small, so retrieval mostly saves tokens (about 60% smaller prompts, 90% table recall). The numbers will be filled in as the runs finish.
+**Read this carefully: the rows are not comparable to each other.** The free Gemini tier caps each model per day (500 requests for the lite models, about 20 for the larger ones), and the 200-question runs exhausted those caps, so the rows were produced on different models. Gains between rows only mean something when both rows used the same model, which is true for exactly one step:
 
-How to read the number:
+- **F2 to F3 (same model):** 62.0% to 61.0%, i.e. -1.0 point, with 13 questions fixed and 15 broken. That is within noise: few-shot examples did not help.
+- **F1 to F2 and F3 to F4 cross models**, so no gain or loss can be read from them. The Evaluation page refuses to compute one.
+- On a partial same-model run (`gemini-3.5-flash-lite`, the 131 questions that finished in all four configurations, not recorded): F1 62.6%, F2 60.3%, F3 55.7%, F4 57.3%. The same pattern: retrieval and few-shot did not help, self-correction helped slightly.
 
-- **Compare rows to each other, not to the BIRD leaderboard.** About 8% of BIRD questions (124 of 1,534) are excluded because their reference SQL is SQLite-specific and does not run on PostgreSQL.
+Other measurements: F2 keeps the tables the reference query needs for 90% of questions and cuts prompts by roughly 60% versus the full schema, but accuracy did not improve (BIRD databases are small, so the full schema already fits). With F4 every one of the 200 queries executed without error (4.5% needed a retry); without it, 6% of F2 queries failed to execute on Gemma. Only F4's 95%-execute target is clearly met. The spec's "beat your baseline by 10+ points" target is **not** met, and nothing here shows that retrieval or few-shot help.
+
+How to read the numbers:
+
+- **BIRD leaderboard:** about 8% of BIRD questions (124 of 1,534) are excluded because their reference SQL is SQLite-specific and does not run on PostgreSQL, so do not compare to the public leaderboard.
 - The metric is BIRD execution accuracy: set equality of result rows, plus row order when the reference query has a top-level `ORDER BY`.
 - Predicted SQL goes through the same case-insensitive identifier normalization as the reference SQL, which reproduces SQLite's rules. Without it, unquoted mixed-case names failed on PostgreSQL and the baseline measured quoting instead of SQL ability.
-- Latency in the results includes free-tier rate limiting.
+- Latency in the results includes free-tier rate limiting and, on one day, a sleeping laptop.
 
 ## Quick start (local)
 
@@ -163,7 +169,7 @@ Not deployed. The files are ready (`backend/Dockerfile`, `render.yaml`, `scripts
 
 ## Known limitations
 
-- F2, F3 and F4 accuracy are not measured yet; the F4 target (95%+ of queries run without error) is untested.
+- The ablation rows come from three different models (see Results). A clean single-model run needs about 650 LLM calls, which the free-tier daily caps make awkward; billing on one key would fix it.
 - Clarification and follow-up behaviour has only been tested with scripted LLMs, not a live model.
 - On a public demo, anyone can thumbs-up a query and have it saved as an example that is injected into other users' prompts. It only takes effect if `PRODUCT_FEW_SHOT` is on (off by default); review examples before enabling both.
 - The sample database (Chinook) is partly synthetic: the music catalog is real, but customers, employees and sales are generated. Use BIRD for the accuracy number.

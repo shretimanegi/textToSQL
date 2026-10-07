@@ -184,7 +184,7 @@ async def run(config_key: str, limit: int | None = None, concurrency: int = 4, r
     summary["wall_seconds"] = round(time.monotonic() - t0, 1)
 
     run_config = {"key": config_key, **cfg, "provider": settings.llm_provider, "model": settings.llm_model,
-                  "thinking_budget": settings.llm_thinking_budget, "evidence": configs.EVIDENCE, "identifier_normalization": True,
+                  "thinking_budget": settings.llm_thinking_budget, "thinking_level": settings.llm_thinking_level, "evidence": configs.EVIDENCE, "identifier_normalization": True,
                   "exec_timeout_s": configs.EXEC_TIMEOUT_S, "subset_limit": limit,
                   "metric": "BIRD EX (set equality; ordered if gold has ORDER BY)", "summary": summary}
     RESULTS_DIR.mkdir(exist_ok=True)

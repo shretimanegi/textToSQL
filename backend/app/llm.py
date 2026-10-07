@@ -28,17 +28,24 @@ def _retry_delay_s(body: str) -> float:
     return int(m.group(1) or 0) * 3600 + int(m.group(2) or 0) * 60 + float(m.group(3))
 
 
+def thinking_config() -> dict | None:
+    """Gemini 2.5 takes a token budget, Gemini 3.x takes a level and rejects the budget."""
+    if settings.llm_thinking_level:
+        return {"thinkingLevel": settings.llm_thinking_level}
+    if settings.llm_thinking_budget >= 0:
+        return {"thinkingBudget": settings.llm_thinking_budget}
+    return None
+
+
 async def _gemini(system: str, user: str, max_tokens: int) -> Completion:
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{settings.llm_model}:generateContent"
     body = {
         "systemInstruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
-        "generationConfig": {
-            "maxOutputTokens": max_tokens,
-            "temperature": 0,
-            "thinkingConfig": {"thinkingBudget": settings.llm_thinking_budget},
-        },
+        "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0},
     }
+    if (tc := thinking_config()) is not None:
+        body["generationConfig"]["thinkingConfig"] = tc
     async with httpx.AsyncClient(timeout=90) as client:
         for attempt in range(_MAX_ATTEMPTS):
             try:

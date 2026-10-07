@@ -121,3 +121,16 @@ async def test_f4_harness_path_reports_unfixable_as_exec_error(monkeypatch):
     monkeypatch.setattr(harness, "cached_complete", always_bad)
     rec = await harness.eval_question(q, cfg, {}, catalog, asyncio.Semaphore(1))
     assert rec["outcome"] == "exec_error" and not rec["correct"] and rec["retries"] == 1
+
+
+def test_cache_key_is_unchanged_for_existing_entries_and_differs_per_thinking_level(monkeypatch):
+    import hashlib
+    from eval import cache
+    monkeypatch.setattr(cache.settings, "llm_provider", "gemini")
+    monkeypatch.setattr(cache.settings, "llm_model", "m")
+    monkeypatch.setattr(cache.settings, "llm_thinking_budget", 0)
+    monkeypatch.setattr(cache.settings, "llm_thinking_level", "")
+    legacy = hashlib.sha256(json.dumps(["gemini", "m", 0, "sys", "usr"]).encode()).hexdigest()
+    assert cache._key("sys", "usr") == legacy
+    monkeypatch.setattr(cache.settings, "llm_thinking_level", "minimal")
+    assert cache._key("sys", "usr") != legacy

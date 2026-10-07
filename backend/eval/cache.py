@@ -12,8 +12,10 @@ CACHE_DIR = Path(__file__).parent / "cache"
 
 
 def _key(system: str, user: str) -> str:
-    blob = json.dumps([settings.llm_provider, settings.llm_model, settings.llm_thinking_budget, system, user])
-    return hashlib.sha256(blob.encode()).hexdigest()
+    parts = [settings.llm_provider, settings.llm_model, settings.llm_thinking_budget]
+    if settings.llm_thinking_level:  # only when set, so entries cached before this setting existed stay valid
+        parts.append(settings.llm_thinking_level)
+    return hashlib.sha256(json.dumps(parts + [system, user]).encode()).hexdigest()
 
 
 async def cached_complete(system: str, user: str) -> dict:
